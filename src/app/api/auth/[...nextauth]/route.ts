@@ -1,17 +1,18 @@
 import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@/lib/prisma-adapter"
+import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
-import bcrypt from "bcrypt"
+import * as argon2 from "argon2"
 
 const handler = NextAuth({
-  adapter: PrismaAdapter(),
+  adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
       name: "credentials",
@@ -24,30 +25,35 @@ const handler = NextAuth({
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
+        try {
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email
+            }
+          })
+
+          if (!user || !user.password) {
+            return null
           }
-        })
 
-        if (!user || !user.password) {
+          const isPasswordValid = await argon2.verify(
+            user.password,
+            credentials.password
+          )
+
+          if (!isPasswordValid) {
+            return null
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          }
+        } catch (error) {
+          console.error("Authorization error:", error)
           return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
         }
       }
     })
@@ -55,7 +61,55 @@ const handler = NextAuth({
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60,
-    updateAge: 24 * 60 * 60,
+    updateAge: 24 * 60 * 60, 
+  },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    pkceCodeVerifier: {
+      name: `next-auth.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 900,
+      },
+    },
+    state: {
+      name: `next-auth.state`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 900,
+      },
+    },
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -65,7 +119,7 @@ const handler = NextAuth({
       return token
     },
     async session({ session, token }: any) {
-      if (token) {
+      if (token && session.user) {
         session.user.id = token.id as string
       }
       return session
@@ -74,7 +128,9 @@ const handler = NextAuth({
   pages: {
     signIn: '/auth/signin',
     signOut: '/auth/signout',
-  }
+    error: '/auth/error',
+  },
+  debug: process.env.NODE_ENV === "development",
 })
 
 export { handler as GET, handler as POST }
