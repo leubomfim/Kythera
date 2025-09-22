@@ -1,4 +1,3 @@
-
 import { PrismaClient } from "@prisma/client";
 
 declare global {
@@ -11,11 +10,17 @@ let prisma: PrismaClient;
 if (process.env.NODE_ENV === "production") {
   prisma = new PrismaClient({
     log: ["error"],
+    datasourceUrl: process.env.DATABASE_URL,
+    transactionOptions: {
+      timeout: 10000,
+      maxWait: 5000,
+    },
   });
 } else {
   if (!global.cachedPrisma) {
     global.cachedPrisma = new PrismaClient({
-      log: ["error"],
+      log: ["error", "warn"],
+      datasourceUrl: process.env.DATABASE_URL,
     });
   }
   prisma = global.cachedPrisma;

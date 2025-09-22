@@ -8,6 +8,8 @@ import * as argon2 from "argon2"
 const handler = NextAuth({
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
+  // Configurações específicas para produção
+  useSecureCookies: process.env.NODE_ENV === "production",
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -60,8 +62,8 @@ const handler = NextAuth({
   ],
   session: {
     strategy: "jwt",
-    maxAge: 7 * 24 * 60 * 60,
-    updateAge: 24 * 60 * 60, 
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+    updateAge: 24 * 60 * 60, // 1 day
   },
   cookies: {
     sessionToken: {
