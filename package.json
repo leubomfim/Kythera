@@ -9,7 +9,10 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@prisma/client": "6.16.2",
+    "@types/bcrypt": "^6.0.0",
     "@types/dompurify": "^3.2.0",
+    "bcrypt": "^6.0.0",
     "dompurify": "^3.2.7",
     "framer-motion": "^12.23.13",
     "next": "15.5.3",
@@ -21,11 +24,12 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^20.19.16",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "prisma": "^6.16.2",
     "tailwindcss": "^4",
+    "tsx": "^4.20.5",
     "typescript": "^5"
   }
 }
